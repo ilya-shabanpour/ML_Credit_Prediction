@@ -13,7 +13,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.ensemble import RandomForestRegressor
 
 
-def replace_outliers_with_mode_iqr(data):
+def replace_outliers_with_mean_iqr(data):
     # Initialize an empty DataFrame to store the results
     result = pd.DataFrame(index=data.index, columns=data.columns)
 
@@ -26,8 +26,8 @@ def replace_outliers_with_mode_iqr(data):
         upper_bound = Q3 + 1.5 * IQR  # Upper bound for outliers
 
         # Replace outliers with mode for the current column
-        mode_val = data.loc[(data[col] >= lower_bound) & (data[col] <= upper_bound), col].mode()[0]
-        result[col] = data[col].apply(lambda x: mode_val if x < lower_bound or x > upper_bound else x)
+        mean_val = data.loc[(data[col] >= lower_bound) & (data[col] <= upper_bound), col].mean()
+        result[col] = data[col].apply(lambda x: mean_val if x < lower_bound or x > upper_bound else x)
 
     return result
 
@@ -38,38 +38,33 @@ def data_preparation(df):
     """""
 
     # drop last column because all NaN
-    df = df.drop("Unnamed: 19", axis=1)
-    df = df.drop("CLIENTNUM", axis=1)
+    df.drop("Unnamed: 19", axis=1, inplace=True)
+    df.drop("CLIENTNUM", axis=1, inplace=True)
 
     # replace mod of Marital Status for NaN and Unknown
-    mod_marriage = df["Marital_Status"].mode()
-    mod_marriage = mod_marriage[0]
+    mod_marriage = df["Marital_Status"].mode()[0]
     new_col = df["Marital_Status"].replace(np.nan, mod_marriage)
     df["Marital_Status"] = new_col.values
     new_col = df["Marital_Status"].replace("Unknown", mod_marriage)
     df["Marital_Status"] = new_col.values
 
     # replace mod of Gender for NaN
-    mod_gender = df["Gender"].mode()
-    mod_gender = mod_gender[0]
+    mod_gender = df["Gender"].mode()[0]
     new_col = df["Gender"].replace(np.nan, mod_gender)
     df["Gender"] = new_col.values
 
     # replace mod of Education_Level for Unknown
-    mod_edu = df["Education_Level"].mode()
-    mod_edu = mod_edu[0]
+    mod_edu = df["Education_Level"].mode()[0]
     new_col = df["Education_Level"].replace("Unknown", mod_edu)
     df["Education_Level"] = new_col.values
 
     # replace mod Income_Category for Unknown
-    mod_inc = df["Income_Category"].mode()
-    mod_inc = mod_inc[0]
+    mod_inc = df["Income_Category"].mode()[0]
     new_col = df["Income_Category"].replace("Unknown", mod_inc)
     df["Income_Category"] = new_col.values
 
     # replace mod Card_Category for NaN
-    mod_card_cat = df["Card_Category"].mode()
-    mod_card_cat = mod_card_cat[0]
+    mod_card_cat = df["Card_Category"].mode()[0]
     new_col = df["Card_Category"].replace(np.nan, mod_card_cat)
     df["Card_Category"] = new_col.values
 
@@ -84,6 +79,8 @@ def data_preparation(df):
     mean_total = mean_total.round()
     new_col = df["Total_Relationship_Count"].replace(np.nan, mean_total)
     df["Total_Relationship_Count"] = new_col.values
+
+    df = df.drop_duplicates()
 
     # Now we convert the string type columns into numbers using One Hot Encoding
 
@@ -147,7 +144,7 @@ def model(df):
 
     # Model = LinearRegression()
     # Model = Ridge()
-    Model = RandomForestRegressor(n_estimators=100, random_state=0, max_depth=15)
+    Model = RandomForestRegressor(n_estimators=100, max_depth=15, random_state=10)
     # Model = MLPRegressor(max_iter=1500, random_state=0, alpha= 0.0001, learning_rate='adaptive', learning_rate_init=0.01, hidden_layer_sizes=(100,), solver='adam')
 
     Model.fit(x_train, y_train)
@@ -157,14 +154,14 @@ def model(df):
     # y_pred = Model.predict(x_test_poly)
 
     mse = round(mean_squared_error(y_true=y_test, y_pred=y_pred))
-    # r2 = round(r2_score(y_test, y_pred), 2)
+    r2 = round(r2_score(y_test, y_pred), 2)
     # mae = round(mean_absolute_error(y_test, y_pred))
     rmse = round(math.sqrt(mse))
 
-    # print(r2)
+    print(r2)
     print(mse)
     print(rmse)
-    return [mse, rmse]
+    return mse
 
 
 if __name__ == '__main__':
@@ -172,10 +169,11 @@ if __name__ == '__main__':
 
     df = data_preparation(df)
 
-    df = replace_outliers_with_mode_iqr(df)
+    df = replace_outliers_with_mean_iqr(df)
 
-    results =[]
+    results = []
     for i in range(10):
         result = model(df)
         results.append(result)
-    print(results)
+    results = np.array(results)
+    print(results.mean())
