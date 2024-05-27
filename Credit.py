@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import mean_absolute_error
@@ -133,35 +133,34 @@ def model(df):
 
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.1, shuffle=True)
 
-    # x_train_poly = pf.fit_transform(x_train)
-    # x_test_poly = pf.transform(x_test)
+    x_train_poly = pf.fit_transform(x_train)
+    x_test_poly = pf.transform(x_test)
 
     x_train = scaler.fit_transform(x_train)
     x_test = scaler.transform(x_test)
 
-    # x_train_poly = scaler.fit_transform(x_train_poly)
-    # x_test_poly = scaler.transform(x_test_poly)
+    x_train_poly = scaler.fit_transform(x_train_poly)
+    x_test_poly = scaler.transform(x_test_poly)
 
-    # Model = LinearRegression()
-    # Model = Ridge()
-    Model = RandomForestRegressor(n_estimators=100, max_depth=15, random_state=10)
-    # Model = MLPRegressor(max_iter=1500, random_state=0, alpha= 0.0001, learning_rate='adaptive', learning_rate_init=0.01, hidden_layer_sizes=(100,), solver='adam')
+    lr = LinearRegression()
+    ridge = Ridge()
+    rf = RandomForestRegressor(n_estimators=100, max_depth=15, random_state=10)
+    # mlp = MLPRegressor(max_iter=1500, random_state=0, alpha= 0.0001, learning_rate='adaptive', learning_rate_init=0.01, hidden_layer_sizes=(100,), solver='adam')
 
-    Model.fit(x_train, y_train)
-    y_pred = Model.predict(x_test)
+    rf.fit(x_train, y_train)
+    y_pred_rf = rf.predict(x_test)
 
-    # Model.fit(x_train_poly, y_train)
-    # y_pred = Model.predict(x_test_poly)
+    lr.fit(x_train, y_train)
+    y_pred_lr = lr.predict(x_test)
 
-    mse = round(mean_squared_error(y_true=y_test, y_pred=y_pred))
-    r2 = round(r2_score(y_test, y_pred), 2)
-    # mae = round(mean_absolute_error(y_test, y_pred))
-    rmse = round(math.sqrt(mse))
+    ridge.fit(x_train_poly, y_train)
+    y_pred_ridge = ridge.predict(x_test_poly)
 
-    print(r2)
-    print(mse)
-    print(rmse)
-    return mse
+    mse_rf = round(mean_squared_error(y_true=y_test, y_pred=y_pred_rf))
+    mse_lr = round(mean_squared_error(y_true=y_test, y_pred=y_pred_lr))
+    mse_ridge = round(mean_squared_error(y_true=y_test, y_pred=y_pred_ridge))
+
+    return mse_rf, mse_lr, mse_ridge
 
 
 if __name__ == '__main__':
@@ -171,9 +170,34 @@ if __name__ == '__main__':
 
     df = replace_outliers_with_mean_iqr(df)
 
-    results = []
+    results_RF = []
+    results_LR = []
+    results_PolyRidge = []
     for i in range(10):
         result = model(df)
-        results.append(result)
-    results = np.array(results)
-    print(results.mean())
+        results_RF.append(result[0])
+        results_LR.append(result[1])
+        results_PolyRidge.append(result[2])
+
+
+    results_RF = np.array(results_RF)
+    results_LR = np.array(results_LR)
+    results_PolyRidge = np.array(results_PolyRidge)
+
+    plt.plot(results_LR, color='blue', label='Linear Regression - Mean: ' +  str(results_LR.mean()))
+
+    plt.plot(results_PolyRidge, color='red', label='Polynomial Ridge Regression - Mean: ' +
+                                                   str(results_PolyRidge.mean()))
+
+    plt.plot(results_RF, color='green', label='Random Forest - Mean: ' +  str(results_RF.mean()))
+
+    plt.title("3 Models MSE")
+    plt.xlabel("Execution number")
+    plt.ylabel("MSE")
+    plt.grid()
+    plt.legend()
+    plt.show()
+
+    print("Linear Regression mean MSE: ", results_LR.mean())
+    print("Poly Ridge Regression mean MSE: ", results_PolyRidge.mean())
+    print("Random Forest mean MSE: ", results_RF.mean())
