@@ -14,7 +14,7 @@ from sklearn.neural_network import MLPRegressor
 
 def replace_outliers_with_mean_iqr(data):
     # Initialize an empty DataFrame to store the results
-    result = pd.DataFrame(index=data.index, columns=data.columns)
+    # result = pd.DataFrame(index=data.index, columns=data.columns)
 
     # Loop through each column in the DataFrame
     for col in data.columns:
@@ -25,10 +25,10 @@ def replace_outliers_with_mean_iqr(data):
         upper_bound = Q3 + 1.5 * IQR  # Upper bound for outliers
 
         # Replace outliers with mode for the current column
-        mean_val = data.loc[(data[col] >= lower_bound) & (data[col] <= upper_bound), col].mean()
-        result[col] = data[col].apply(lambda x: mean_val if x < lower_bound or x > upper_bound else x)
-
-    return result
+        # mean_val = data.loc[(data[col] >= lower_bound) & (data[col] <= upper_bound), col].mean()
+        # result[col] = data[col].apply(lambda x: mean_val if x < lower_bound or x > upper_bound else x)
+        data = data[(data[col] >= lower_bound) & (data[col] <= upper_bound)]
+    return data
 
 def data_preparation(df):
     """""
@@ -57,15 +57,19 @@ def data_preparation(df):
     new_col = df["Education_Level"].replace("Unknown", mod_edu)
     df["Education_Level"] = new_col.values
 
+
     # replace mod Income_Category for Unknown
     mod_inc = df["Income_Category"].mode()[0]
     new_col = df["Income_Category"].replace("Unknown", mod_inc)
     df["Income_Category"] = new_col.values
 
+
     # replace mod Card_Category for NaN
     mod_card_cat = df["Card_Category"].mode()[0]
     new_col = df["Card_Category"].replace(np.nan, mod_card_cat)
     df["Card_Category"] = new_col.values
+
+
 
     # replace mean Months_on_book for NaN
     mean_month = df["Months_on_book"].mean().round()
@@ -85,25 +89,20 @@ def data_preparation(df):
     df = pd.concat([df, df_encoded], axis=1)
     df.drop('Marital_Status', axis=1, inplace=True)
 
-    df_encoded = pd.get_dummies(df['Card_Category'], prefix='Card_Category')
-    df_encoded = df_encoded.astype(int)
-    df = pd.concat([df, df_encoded], axis=1)
-    df.drop('Card_Category', axis=1, inplace=True)
-
     df_encoded = pd.get_dummies(df['Gender'], prefix='Gender')
     df_encoded = df_encoded.astype(int)
     df = pd.concat([df, df_encoded], axis=1)
     df.drop('Gender', axis=1, inplace=True)
 
-    df_encoded = pd.get_dummies(df["Education_Level"], prefix="Education_Level")
-    df_encoded = df_encoded.astype(int)
-    df = pd.concat([df, df_encoded], axis=1)
-    df.drop("Education_Level", axis=1, inplace=True)
+    card_category_map = {'Blue': 0, 'Gold': 2, 'Silver': 1, 'Platinum': 3}
+    df['Card_Category'] = df['Card_Category'].map(card_category_map)
 
-    df_encoded = pd.get_dummies(df["Income_Category"], prefix="Income_Category")
-    df_encoded = df_encoded.astype(int)
-    df = pd.concat([df, df_encoded], axis=1)
-    df.drop("Income_Category", axis=1, inplace=True)
+    education_level_map = {'High School': 1, 'Graduate': 3, 'Uneducated': 0, 'College': 2, 'Post-Graduate': 4,
+                           'Doctorate': 5}
+    df['Education_Level'] = df['Education_Level'].map(education_level_map)
+
+    income_category_map = {'$60K - $80K': 2, 'Less than $40K': 0, '$80K - $120K': 3, '$40K - $60K': 1, '$120K +': 4}
+    df['Income_Category'] = df['Income_Category'].map(income_category_map)
 
     # move the label column to be the last column
     column_to_move = df.pop("Credit_Limit")
@@ -127,7 +126,7 @@ def model(df):
     y = np.array(y)
 
 
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.1, shuffle=True)
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, shuffle=True)
 
     x_train_poly = pf.fit_transform(x_train)
     x_test_poly = pf.transform(x_test)
@@ -140,8 +139,8 @@ def model(df):
 
     lr = LinearRegression()
     ridge = Ridge()
-    rf = RandomForestRegressor(n_estimators=100, max_depth=15, random_state=10)
-    mlp = MLPRegressor(max_iter=5000, random_state=0, learning_rate_init=0.005)
+    rf = RandomForestRegressor(n_estimators=120, max_depth=10, random_state=10)
+    # mlp = MLPRegressor(max_iter=5000, random_state=0, learning_rate_init=0.005)
 
     rf.fit(x_train, y_train)
     y_pred_rf = rf.predict(x_test)
@@ -152,15 +151,15 @@ def model(df):
     ridge.fit(x_train_poly, y_train)
     y_pred_ridge = ridge.predict(x_test_poly)
 
-    mlp.fit(x_train, y_train)
-    y_pred_mlp = mlp.predict(x_test)
+    # mlp.fit(x_train, y_train)
+    # y_pred_mlp = mlp.predict(x_test)
 
     mse_rf = round(mean_squared_error(y_true=y_test, y_pred=y_pred_rf))
     mse_lr = round(mean_squared_error(y_true=y_test, y_pred=y_pred_lr))
     mse_ridge = round(mean_squared_error(y_true=y_test, y_pred=y_pred_ridge))
-    mse_mlp = round(mean_squared_error(y_true=y_test, y_pred=y_pred_mlp))
+    # mse_mlp = round(mean_squared_error(y_true=y_test, y_pred=y_pred_mlp))
 
-    return mse_rf, mse_lr, mse_ridge, mse_mlp
+    return mse_rf, mse_lr, mse_ridge
 
 
 if __name__ == '__main__':
@@ -173,7 +172,7 @@ if __name__ == '__main__':
     results_RF = []
     results_LR = []
     results_PolyRidge = []
-    results_MLP = []
+    # results_MLP = []
 
 # running each model 10 times
     for i in range(10):
@@ -181,12 +180,12 @@ if __name__ == '__main__':
         results_RF.append(result[0])
         results_LR.append(result[1])
         results_PolyRidge.append(result[2])
-        results_MLP.append(result[3])
+        # results_MLP.append(result[3])
 
     results_RF = np.array(results_RF)
     results_LR = np.array(results_LR)
     results_PolyRidge = np.array(results_PolyRidge)
-    results_MLP = np.array(results_MLP)
+    # results_MLP = np.array(results_MLP)
 
 # plotting the MSE results
     plt.plot(results_LR, color='blue', label='Linear Regression - Mean: ' +  str(results_LR.mean()))
@@ -196,9 +195,9 @@ if __name__ == '__main__':
 
     plt.plot(results_RF, color='green', label='Random Forest - Mean: ' +  str(results_RF.mean()))
 
-    plt.plot(results_MLP, color='purple', label='MLP - Mean: ' +  str(results_MLP.mean()))
+    # plt.plot(results_MLP, color='purple', label='MLP - Mean: ' +  str(results_MLP.mean()))
 
-    plt.title("4 Models MSE")
+    plt.title("3 Models MSE")
     plt.xlabel("Execution number")
     plt.ylabel("MSE")
     plt.grid()
